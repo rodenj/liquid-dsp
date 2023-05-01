@@ -101,14 +101,40 @@ int main(int argc, char*argv[])
     symstreamcf_write_samples(gen, x, num_samples);
     symstreamcf_destroy(gen);
 
+    // calculate average power before optional scaling
+    double sumsq = 0.0;
+    for (i=0; i<num_samples; i++) {
+        sumsq += (double)(cabs(x[i])*cabs(x[i]));
+    }
+    double avg_power = sumsq / num_samples;
+    printf("Average signal power before scaling: %.4g\n", avg_power);
+    
+    printf("Scaling upsampled input signal...\n");
+    for (i=0; i<num_samples; i++) {
+        //x[i] = x[i] * (float)0.5022;  // for S=0.5  (0.5001)
+        //x[i] = x[i] * (float)0.7102;  // for S=1.0  (1.0001)
+        //x[i] = x[i] * (float)1.4204;  // for S=4.0  (4.0003)
+        //x[i] = x[i] * (float)2.2458; // for S=10.0  (10.0003)
+        //x[i] = x[i] * (float)3.5509; // for S=25.0  (25.0004)
+        x[i] = x[i] * (float)5.0217; // for S=50.0  (50.0001)
+    }
+    
+    sumsq = 0.0;
+    for (i=0; i<num_samples; i++) {
+        sumsq += (double)(cabs(x[i])*cabs(x[i]));
+    }
+    avg_power = sumsq / num_samples;
+    printf("Average signal power after scaling, before adding noise: %.4f\n", avg_power);
+
     // create channel
     channel_cccf channel = channel_cccf_create();
 
     // add channel impairments
-    channel_cccf_add_awgn          (channel, noise_floor, SNRdB);
-    channel_cccf_add_carrier_offset(channel, dphi, phi);
-    channel_cccf_add_multipath     (channel, NULL, hc_len);
-    channel_cccf_add_shadowing     (channel, 1.0f, 0.1f);
+    //channel_cccf_add_awgn          (channel, noise_floor, SNRdB);
+    channel_cccf_add_awgn_new        (channel, noise_floor, SNRdB, avg_power, 1.0/k, 1);
+    //channel_cccf_add_carrier_offset(channel, dphi, phi);
+    //channel_cccf_add_multipath     (channel, NULL, hc_len);
+    //channel_cccf_add_shadowing     (channel, 1.0f, 0.1f);
 
     // print channel internals
     channel_cccf_print(channel);
