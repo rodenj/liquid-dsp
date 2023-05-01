@@ -33,10 +33,13 @@
 struct CHANNEL(_s) {
     // additive white Gauss noise
     int             enabled_awgn;       // AWGN enabled?
+    int             enabled_awgn_new;   // AWGN "new" enabled?
     T               gamma;              // channel gain
     T               nstd;               // noise standard deviation
     float           noise_floor;        // noise floor density [dB]
     float           snr;                // signal-to-noise ratio [dB]
+    float           avg_power;          // average power of input signal
+    float           samples_per_symbol; // samples_per_symbol of input signal
 
     // carrier offset
     int             enabled_carrier;    // carrier offset enabled?
@@ -126,6 +129,12 @@ int CHANNEL(_print)(CHANNEL() _q)
 {
     printf("channel\n");
     if (_q->enabled_awgn)       printf("  AWGN:      SNR=%.3f dB, gamma=%.3f, std=%.6f\n", _q->snr, _q->gamma, _q->nstd);
+    if (_q->enabled_awgn_new) {
+        float k_in_db = 10 * log10(_q->samples_per_symbol);
+        float s_in_db = 10 * log10(_q->avg_power);
+        printf("  AWGN:      Correction for samples_per_symbol=%g in decibels: %g\n", _q->samples_per_symbol, k_in_db);
+        printf("  AWGN:      Correction for avg_power=%g in decibels: %g\n", _q->avg_power, s_in_db);
+    }
     if (_q->enabled_carrier)    printf("  carrier:   dphi=%.3f, phi=%.3f\n", _q->dphi, _q->phi);
     if (_q->enabled_multipath)  printf("  multipath: h_len=%u\n", _q->h_len);
     if (_q->enabled_shadowing)  printf("  shadowing: std=%.3fdB, fd=%.3f\n", _q->shadowing_std, _q->shadowing_fd);
@@ -150,6 +159,43 @@ int CHANNEL(_add_awgn)(CHANNEL() _q,
     // set values appropriately
     _q->nstd  = powf(10.0f, _noise_floor/20.0f);
     _q->gamma = powf(10.0f, (_q->snr+_q->noise_floor)/20.0f);
+    return LIQUID_OK;
+}
+
+// apply additive white Gausss noise impairment to more diverse signals
+//  _q           : channel object
+//  _noise_floor : noise floor power spectral density [dB]
+//  _snr_esn0    : signal-to-noise ratio (as Es/N0) [dB]
+//  _avg_power   : average signal power
+//  _bandwidth   : signal bandwidth [Hz]
+//  _sample_rate : sample rate of signal [Hz]
+int CHANNEL(_add_awgn_new)(CHANNEL() _q,
+                           float     _noise_floor,
+                           float     _snr_esn0,
+                           float     _avg_power,
+                           float     _bandwidth,
+                           unsigned int _sample_rate)
+{
+    // enable module
+    _q->enabled_awgn = 1;
+    _q->enabled_awgn_new = 1;
+
+    // define k samples per symbol given bandwidth and sample rate
+    float k = _sample_rate / _bandwidth;
+
+    //
+    _q->noise_floor         = _noise_floor;
+    _q->snr                 = _snr_esn0;
+    _q->avg_power           = _avg_power;
+    _q->samples_per_symbol  = k;
+
+    float k_in_db = 10 * log10(_q->samples_per_symbol);
+    float s_in_db = 10 * log10(_q->avg_power);
+
+    // set values appropriately
+    _q->nstd  = powf(10.0f, _q->noise_floor/20.0f);
+    _q->gamma = powf(10.0f, (_q->snr + _q->noise_floor - k_in_db - s_in_db)/20.0f);
+
     return LIQUID_OK;
 }
 

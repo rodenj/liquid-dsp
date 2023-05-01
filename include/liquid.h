@@ -668,6 +668,20 @@ int CHANNEL(_add_awgn)(CHANNEL() _q,                                        \
                        float     _noise_floor,                              \
                        float     _snr);                                     \
                                                                             \
+/* Include additive white Gauss noise impairment (more general)         */  \
+/*  _q          : channel object                                        */  \
+/*  _noise_floor: noise floor power spectral density [dB]               */  \
+/*  _snr_esn0   : signal-to-noise ratio (as Es/N0) [dB]                 */  \
+/*  _avg_power  : average signal power                                  */  \
+/*  _bandwidth  : signal bandwidth [Hz]                                 */  \
+/*  _sample_rate: sample rate of signal [Hz]                            */  \
+int CHANNEL(_add_awgn_new)(CHANNEL() _q,                                    \
+                           float     _noise_floor,                          \
+                           float     _snr_esn0,                             \
+                           float     _avg_power,                            \
+                           float     _bandwidth,                            \
+                           unsigned int _sample_rate);                      \
+                                                                            \
 /* Include carrier offset impairment                                    */  \
 /*  _q          : channel object                                        */  \
 /*  _frequency  : carrier frequency offset [radians/sample]             */  \
